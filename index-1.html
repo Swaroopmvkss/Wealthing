@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Ledger — Wealth Sufficiency Check</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#12213B;
+    --ink-2:#1B2E4F;
+    --paper:#F6F3EA;
+    --gold:#C9A24B;
+    --line: rgba(201,162,75,0.25);
+    --good:#4F7A5B;
+    --bad:#A5453C;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: var(--ink);
+    background-image:
+      radial-gradient(circle at 20% 0%, rgba(201,162,75,0.08), transparent 40%),
+      radial-gradient(circle at 100% 100%, rgba(201,162,75,0.06), transparent 45%);
+    color: var(--paper);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    padding: 20px 12px 60px;
+  }
+  .passbook{ width:100%; max-width:480px; }
+  .cover{ text-align:center; padding: 18px 6px 22px; }
+  .cover .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    letter-spacing:0.18em; font-size:11px; color: var(--gold); text-transform:uppercase;
+  }
+  .cover h1{
+    font-family:'Fraunces', serif; font-weight:600; font-size: 34px;
+    margin: 6px 0 4px; letter-spacing:-0.01em;
+  }
+  .cover p{ color: rgba(246,243,234,0.65); font-size: 14px; margin:0; line-height:1.5; }
+  .card{
+    background: var(--ink-2); border: 1px solid var(--line); border-radius: 4px;
+    padding: 22px 18px; margin-bottom: 14px; position:relative;
+  }
+  .card::before{
+    content:''; position:absolute; left:0; top:0; bottom:0; width:3px;
+    background: linear-gradient(var(--gold), transparent 80%);
+  }
+  label{
+    display:block; font-family:'IBM Plex Mono', monospace; font-size:11px;
+    letter-spacing:0.08em; text-transform:uppercase; color: var(--gold); margin-bottom:6px;
+  }
+  .field{margin-bottom:16px;}
+  input[type=text], input[type=number]{
+    width:100%; background: rgba(246,243,234,0.05); border:1px solid var(--line);
+    border-radius:3px; color: var(--paper); font-family:'IBM Plex Mono', monospace;
+    font-size:16px; padding: 11px 12px; outline:none;
+  }
+  input:focus{ border-color: var(--gold); }
+  .btn{
+    width:100%; background: var(--gold); color: var(--ink); border:none;
+    font-family:'Fraunces', serif; font-weight:600; font-size:16px; padding: 13px;
+    border-radius:3px; cursor:pointer; letter-spacing:0.01em;
+  }
+  .btn:active{ transform: translateY(1px); }
+  .log{ display:flex; flex-direction:column; gap:10px; margin-bottom:16px; }
+  .entry{
+    display:flex; justify-content:space-between; align-items:baseline;
+    padding: 10px 0; border-bottom: 1px dashed var(--line); font-size:14px; gap:10px;
+  }
+  .entry .name{ color: rgba(246,243,234,0.85); }
+  .entry .amt{ font-family:'IBM Plex Mono', monospace; color: var(--gold); white-space:nowrap; }
+  .ask{ font-family:'Fraunces', serif; font-size: 20px; line-height:1.35; margin: 2px 0 4px; }
+  .hint{ color: rgba(246,243,234,0.55); font-size:13px; margin-bottom:14px; }
+  .chips{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+  .chip{
+    font-family:'IBM Plex Mono', monospace; font-size:12px; padding:7px 12px;
+    border:1px solid var(--line); border-radius:20px; color: var(--paper);
+    background: rgba(246,243,234,0.04); cursor:pointer;
+  }
+  .chip:active{ background: rgba(201,162,75,0.2); }
+  .row{ display:flex; gap:10px; }
+  .row > *{ flex:1; }
+  .progress-wrap{
+    height:3px; background: rgba(246,243,234,0.08); border-radius:2px;
+    margin-bottom:18px; overflow:hidden;
+  }
+  .progress-bar{ height:100%; background: var(--gold); transition: width 0.4s ease; }
+  .stamp{ text-align:center; padding: 22px 10px; }
+  .stamp .badge{
+    display:inline-block; font-family:'Fraunces', serif; font-weight:700; font-size: 22px;
+    letter-spacing:0.03em; text-transform:uppercase; border: 3px solid currentColor;
+    border-radius:6px; padding: 8px 20px; transform: rotate(-3deg);
+  }
+  .stamp .ratio{ font-family:'IBM Plex Mono', monospace; font-size:13px; color: rgba(246,243,234,0.6); margin-top:10px; }
+  .narrative{ font-size:15px; line-height:1.65; color: rgba(246,243,234,0.9); white-space:pre-wrap; }
+  .total-line{
+    display:flex; justify-content:space-between; font-family:'Fraunces', serif; font-size:19px;
+    padding-top:14px; margin-top:6px; border-top: 1px solid var(--line);
+  }
+  .total-line .v{ color: var(--gold); font-family:'IBM Plex Mono', monospace; font-size:17px;}
+  .footer-note{
+    text-align:center; font-size:11px; color: rgba(246,243,234,0.4); margin-top: 10px;
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .hidden{ display:none; }
+  a.reset-link{
+    color: rgba(246,243,234,0.5); font-size:12px; display:block; text-align:center;
+    margin-top: 14px; text-decoration:underline; cursor:pointer;
+  }
+  .breakdown{ margin-top:16px; }
+  .bar-row{ margin-bottom:10px; }
+  .bar-row .lbl{ display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px; color: rgba(246,243,234,0.7); }
+  .bar-track{ height:6px; background: rgba(246,243,234,0.08); border-radius:3px; overflow:hidden; }
+  .bar-fill{ height:100%; background: var(--gold); }
+</style>
+</head>
+<body>
+<div class="passbook">
+
+  <div class="cover">
+    <div class="eyebrow">Personal Ledger</div>
+    <h1>Wealth Sufficiency Check</h1>
+    <p>A quiet audit of what you hold, against what your age suggests you should. Runs entirely on your phone — nothing is sent anywhere.</p>
+  </div>
+
+  <!-- SCREEN 1: BASICS -->
+  <div class="card" id="screen-basics">
+    <div class="field">
+      <label>Country</label>
+      <input type="text" id="country" placeholder="e.g. India">
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>Age</label>
+        <input type="number" id="age" placeholder="34">
+      </div>
+      <div class="field">
+        <label>Currency</label>
+        <input type="text" id="currency" placeholder="₹ / $ / €">
+      </div>
+    </div>
+    <div class="field">
+      <label>Annual Income (pre-tax, approx)</label>
+      <input type="number" id="income" placeholder="1200000">
+    </div>
+    <div class="field">
+      <label>Occupation</label>
+      <select id="occupation" style="width:100%; background: rgba(246,243,234,0.05); border:1px solid var(--line); border-radius:3px; color: var(--paper); font-family:'IBM Plex Mono', monospace; font-size:15px; padding: 11px 12px;">
+        <option value="salaried">Salaried / Employed</option>
+        <option value="selfemployed">Self-employed / Freelancer</option>
+        <option value="business">Business Owner</option>
+        <option value="retired">Retired / Pension income</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="hint">Income is the yardstick — everything else is measured against it.</div>
+    <button class="btn" onclick="beginAssessment()">Begin</button>
+  </div>
+
+  <!-- SCREEN 2: CHAT / LOG -->
+  <div id="screen-chat" class="hidden">
+    <div class="progress-wrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
+
+    <div class="card" id="logCard">
+      <div class="log" id="log"></div>
+      <div class="total-line hidden" id="runningTotalLine">
+        <span>Running total</span>
+        <span class="v" id="runningTotal">0</span>
+      </div>
+    </div>
+
+    <div class="card" id="askCard">
+      <div class="ask" id="askText">—</div>
+      <div class="hint" id="askHint"></div>
+      <div class="chips" id="askChips"></div>
+      <div class="row">
+        <input type="number" id="amountInput" placeholder="Amount">
+        <button class="btn" style="flex:0 0 90px" onclick="submitAmount()">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 3: RESULT -->
+  <div class="card hidden" id="screen-result">
+    <div class="stamp" id="stampArea"></div>
+    <div class="narrative" id="narrativeText"></div>
+    <div class="breakdown" id="breakdownArea"></div>
+  </div>
+
+  <div class="card hidden" id="screen-tax">
+    <label>Tax Snapshot</label>
+    <div class="narrative" id="taxText"></div>
+  </div>
+
+  <div class="card hidden" id="screen-recommend">
+    <label>Recommended Changes</label>
+    <div class="narrative" id="recommendText" style="margin-bottom:16px;"></div>
+    <div id="allocationCompare"></div>
+    <div id="milestoneArea"></div>
+    <label style="margin-top:16px;display:block;">Tax Harvesting Tips</label>
+    <div class="narrative" id="taxTipsArea"></div>
+    <div class="hint" style="margin-top:14px;">Illustrative model only (8% assumed return; simplified, deduction-free tax slabs) — not financial or tax advice. Confirm figures with a qualified advisor.</div>
+    <a class="reset-link" onclick="resetAll()">Start a new assessment</a>
+  </div>
+
+  <div class="footer-note">LEDGER · A PRIVATE ASSESSMENT · 100% ON-DEVICE, NO API, NO ACCOUNT</div>
+</div>
+
+<script>
+/* ---------- Country asset databases (hardcoded, self-contained) ---------- */
+const ASSET_DB = {
+  india: [
+    {name:'Cash & bank balance', note:'savings/current accounts, cash on hand'},
+    {name:'Gold & jewellery', note:'physical gold, coins, jewellery value'},
+    {name:'Fixed deposits / bonds', note:'FDs, RDs, government bonds'},
+    {name:'Stocks & mutual funds', note:'equity, ETFs, mutual fund holdings'},
+    {name:'EPF / PPF / NPS', note:'provident fund, public provident fund, pension'},
+    {name:'Real estate (excl. primary home)', note:'plots, second homes, rented-out property'},
+    {name:'Vehicles', note:'resale value of cars/bikes owned'},
+    {name:'Other investments', note:'chit funds, crypto, business equity'}
+  ],
+  usa: [
+    {name:'Cash & checking/savings', note:'bank balances, cash on hand'},
+    {name:'401(k) / IRA', note:'employer retirement plans, individual retirement accounts'},
+    {name:'Stocks & brokerage accounts', note:'individual stocks, ETFs, index funds'},
+    {name:'Home equity (beyond mortgage)', note:'primary residence equity'},
+    {name:'Other real estate', note:'rental property, land'},
+    {name:'HSA / 529 plans', note:'health savings, education savings'},
+    {name:'Vehicles', note:'resale value of cars'},
+    {name:'Other investments', note:'crypto, business equity, collectibles'}
+  ],
+  uk: [
+    {name:'Cash & savings accounts', note:'ISAs, easy-access savings'},
+    {name:'Pension (workplace/SIPP)', note:'workplace pension, private pension'},
+    {name:'Stocks & funds', note:'stocks & shares ISA, index funds'},
+    {name:'Home equity (beyond mortgage)', note:'primary residence equity'},
+    {name:'Other property', note:'buy-to-let, land'},
+    {name:'Premium bonds / gilts', note:'NS&I premium bonds, government bonds'},
+    {name:'Vehicles', note:'resale value of cars'},
+    {name:'Other investments', note:'crypto, business equity'}
+  ],
+  uae: [
+    {name:'Cash & bank balance', note:'savings/current accounts'},
+    {name:'Gold & jewellery', note:'physical gold, coins'},
+    {name:'Stocks & mutual funds', note:'local/international equity, funds'},
+    {name:'End-of-service gratuity accrued', note:'estimated gratuity if cashed out today'},
+    {name:'Real estate', note:'property, off-plan investments'},
+    {name:'Vehicles', note:'resale value of cars'},
+    {name:'Fixed deposits', note:'bank FDs'},
+    {name:'Other investments', note:'crypto, business equity'}
+  ],
+  australia: [
+    {name:'Cash & savings', note:'bank balances'},
+    {name:'Superannuation', note:'super balance across funds'},
+    {name:'Stocks & ETFs', note:'ASX shares, index funds'},
+    {name:'Home equity (beyond mortgage)', note:'primary residence equity'},
+    {name:'Investment property', note:'rental property, land'},
+    {name:'Vehicles', note:'resale value of cars'},
+    {name:'Term deposits', note:'bank term deposits'},
+    {name:'Other investments', note:'crypto, business equity'}
+  ],
+  canada: [
+    {name:'Cash & savings', note:'bank balances'},
+    {name:'RRSP / TFSA', note:'registered retirement/tax-free savings'},
+    {name:'Stocks & funds', note:'equity, ETFs, index funds'},
+    {name:'Home equity (beyond mortgage)', note:'primary residence equity'},
+    {name:'Other real estate', note:'rental property, land'},
+    {name:'Vehicles', note:'resale value of cars'},
+    {name:'GICs / bonds', note:'guaranteed investment certificates, bonds'},
+    {name:'Other investments', note:'crypto, business equity'}
+  ],
+  singapore: [
+    {name:'Cash & savings', note:'bank balances'},
+    {name:'CPF balance', note:'Central Provident Fund (OA/SA/MA)'},
+    {name:'Stocks & funds', note:'equity, REITs, unit trusts'},
+    {name:'Property equity (beyond mortgage)', note:'HDB/condo equity'},
+    {name:'Gold', note:'physical gold, gold savings'},
+    {name:'Fixed deposits', note:'bank FDs'},
+    {name:'Vehicles', note:'resale value of cars (rare/high-COE market)'},
+    {name:'Other investments', note:'crypto, business equity'}
+  ],
+  germany: [
+    {name:'Cash & savings', note:'Sparkonto, Tagesgeld'},
+    {name:'Stocks & ETFs', note:'Depot holdings, index funds'},
+    {name:'Riester/Rürup/betriebliche pension', note:'private/employer pension schemes'},
+    {name:'Real estate equity', note:'Immobilie equity beyond mortgage'},
+    {name:'Bausparvertrag', note:'building society savings contract'},
+    {name:'Gold', note:'physical gold holdings'},
+    {name:'Vehicles', note:'resale value of cars'},
+    {name:'Other investments', note:'crypto, business equity'}
+  ]
+};
+
+function genericAssets(){
+  return [
+    {name:'Cash & bank balance', note:'savings/current accounts, cash on hand'},
+    {name:'Fixed deposits / bonds', note:'term deposits, government/corporate bonds'},
+    {name:'Stocks & mutual funds', note:'equity, ETFs, index/mutual funds'},
+    {name:'Retirement / pension fund', note:'workplace or private pension, provident fund'},
+    {name:'Gold & precious metals', note:'physical gold, coins, jewellery value'},
+    {name:'Real estate (excl. primary home)', note:'second property, land, rentals'},
+    {name:'Vehicles', note:'resale value of cars/bikes owned'},
+    {name:'Other investments', note:'crypto, business equity, collectibles'}
+  ];
+}
+
+function lookupAssets(country){
+  const key = (country||'').trim().toLowerCase();
+  const aliases = {
+    'india':'india','bharat':'india',
+    'united states':'usa','usa':'usa','us':'usa','america':'usa','united states of america':'usa',
+    'united kingdom':'uk','uk':'uk','england':'uk','britain':'uk','great britain':'uk',
+    'uae':'uae','united arab emirates':'uae','dubai':'uae','abu dhabi':'uae',
+    'australia':'australia','aus':'australia',
+    'canada':'canada',
+    'singapore':'singapore',
+    'germany':'germany','deutschland':'germany'
+  };
+  const dbKey = aliases[key];
+  return dbKey ? ASSET_DB[dbKey] : genericAssets();
+}
+
+/* ---------- Simplified tax slabs (approximate, illustrative — not tax advice) ---------- */
+const TAX_SLABS = {
+  india: [ [300000,0], [700000,0.05], [1000000,0.10], [1200000,0.15], [1500000,0.20], [Infinity,0.30] ],
+  usa: [ [11600,0.10], [47150,0.12], [100525,0.22], [191950,0.24], [243725,0.32], [609350,0.35], [Infinity,0.37] ],
+  uk: [ [12570,0], [50270,0.20], [125140,0.40], [Infinity,0.45] ],
+  uae: [ [Infinity,0] ],
+  australia: [ [18200,0], [45000,0.19], [135000,0.30], [190000,0.37], [Infinity,0.45] ],
+  canada: [ [55867,0.15], [111733,0.205], [173205,0.26], [246752,0.29], [Infinity,0.33] ],
+  singapore: [ [20000,0], [30000,0.02], [40000,0.035], [80000,0.07], [120000,0.115], [160000,0.15], [200000,0.18], [240000,0.19], [280000,0.195], [320000,0.20], [Infinity,0.22] ],
+  germany: [ [11604,0], [62810,0.24], [277825,0.42], [Infinity,0.45] ]
+};
+
+function taxCountryKey(country){
+  const key = (country||'').trim().toLowerCase();
+  const aliases = {
+    'india':'india','bharat':'india',
+    'united states':'usa','usa':'usa','us':'usa','america':'usa','united states of america':'usa',
+    'united kingdom':'uk','uk':'uk','england':'uk','britain':'uk','great britain':'uk',
+    'uae':'uae','united arab emirates':'uae','dubai':'uae','abu dhabi':'uae',
+    'australia':'australia','aus':'australia',
+    'canada':'canada',
+    'singapore':'singapore',
+    'germany':'germany','deutschland':'germany'
+  };
+  return aliases[key] || null;
+}
+
+function calcProgressiveTax(income, brackets){
+  let tax = 0, lower = 0;
+  for(const [upper, rate] of brackets){
+    const slice = Math.max(0, Math.min(income, upper) - lower);
+    tax += slice * rate;
+    lower = upper;
+    if(income <= upper) break;
+  }
+  return tax;
+}
+
+function estimateTax(income, country, occupation){
+  const key = taxCountryKey(country);
+  const brackets = key ? TAX_SLABS[key] : null;
+  let tax, note = '';
+
+  if(!brackets){
+    tax = income * 0.20;
+    note = `No detailed slab data for ${country || 'this country'} — using a generic 20% flat estimate.`;
+  } else {
+    tax = calcProgressiveTax(income, brackets);
+    if(key === 'india') tax *= 1.04; // cess
+    if(key === 'usa' && (occupation === 'selfemployed' || occupation === 'business')){
+      const ssWageBase = 168600;
+      const seTax = Math.min(income, ssWageBase) * 0.153 + Math.max(0, income - ssWageBase) * 0.029;
+      tax += seTax;
+      note = 'Includes an approximate self-employment tax layer (Social Security + Medicare).';
+    }
+  }
+
+  const effectiveRate = income > 0 ? tax/income : 0;
+  return { tax, afterTax: income - tax, effectiveRate, note, hasModel: !!brackets };
+}
+
+const TAX_TIPS = {
+  india: [
+    'Section 80C investments (ELSS, PPF, EPF, life insurance) can reduce taxable income up to ₹1.5L under the old regime.',
+    'Long-term capital gains on equity above ₹1L/year are taxed at a preferential rate — consider spreading gains across financial years.',
+    'NPS contributions under Section 80CCD(1B) offer an additional deduction beyond 80C.'
+  ],
+  usa: [
+    'Tax-loss harvesting — selling underperforming holdings to offset capital gains — can reduce taxable income (watch the wash-sale rule).',
+    'Maxing out 401(k)/IRA contributions lowers taxable income now and grows tax-deferred.',
+    'HSA contributions, if you\'re eligible, are triple tax-advantaged.'
+  ],
+  uk: [
+    'Use your full ISA allowance — growth and withdrawals inside it are tax-free.',
+    'Pension contributions get tax relief at your marginal rate, a strong lever for higher-rate taxpayers.',
+    'The capital gains allowance resets each tax year — realizing gains within it annually can reduce lifetime tax.'
+  ],
+  uae: [
+    'The UAE has no personal income tax, so the main lever is simply directing more of your gross income into investments rather than tax planning.',
+    'If you have foreign-source income or assets, check your home country\'s tax treatment as a non-resident.'
+  ],
+  australia: [
+    'Salary-sacrificing into superannuation is taxed at 15% instead of your marginal rate.',
+    'Holding growth assets for 12+ months qualifies for the 50% CGT discount.'
+  ],
+  canada: [
+    'TFSA contributions grow completely tax-free — prioritize filling this before non-registered investing.',
+    'RRSP contributions reduce taxable income now, and are taxed on withdrawal — useful if you expect a lower bracket in retirement.'
+  ],
+  singapore: [
+    'Singapore doesn\'t tax capital gains, so long-term equity holding is inherently tax-efficient here.',
+    'Voluntary CPF top-ups can reduce assessable income while boosting retirement savings.'
+  ],
+  germany: [
+    'The annual Sparerpauschbetrag (~€1,000 for singles) shields some investment income from tax — realize gains/dividends within this allowance.',
+    'Church tax and solidarity surcharge can apply on top of income tax — factor these in if applicable.'
+  ]
+};
+
+function buildTaxTips(country, occupation){
+  const key = taxCountryKey(country);
+  const tips = key && TAX_TIPS[key] ? [...TAX_TIPS[key]] : ['Research locally available retirement-linked tax deductions and capital gains exemptions — these vary widely by country.'];
+  if(occupation === 'selfemployed' || occupation === 'business'){
+    if(key === 'india') tips.push('As a professional or freelancer, presumptive taxation under Section 44ADA/44AD may simplify filing if your turnover is under the eligible limit.');
+    if(key === 'usa') tips.push('A SEP-IRA or Solo 401(k) shelters far more than a standard IRA for the self-employed — and remember to set aside for quarterly estimated taxes.');
+    if(!key || (key!=='india' && key!=='usa')) tips.push('As self-employed/business income, check whether your country offers a simplified or presumptive tax scheme for your profession.');
+  }
+  return tips;
+}
+
+
+let state = { country:'', age:0, currency:'₹', income:0, occupation:'salaried', assets: [], answers: [], idx: 0 };
+
+function show(id){
+  ['screen-basics','screen-chat','screen-result','screen-tax','screen-recommend'].forEach(s => document.getElementById(s).classList.add('hidden'));
+  if(Array.isArray(id)) id.forEach(i=>document.getElementById(i).classList.remove('hidden'));
+  else document.getElementById(id).classList.remove('hidden');
+}
+
+function beginAssessment(){
+  state.country = document.getElementById('country').value.trim() || 'your country';
+  state.age = parseInt(document.getElementById('age').value) || 0;
+  state.currency = document.getElementById('currency').value.trim() || '₹';
+  state.income = parseFloat(document.getElementById('income').value) || 0;
+  state.occupation = document.getElementById('occupation').value || 'salaried';
+
+  if(!state.age || !state.income){
+    alert('Please enter your age and annual income.');
+    return;
+  }
+
+  state.assets = lookupAssets(state.country);
+  state.idx = 0;
+  state.answers = [];
+  document.getElementById('log').innerHTML = '';
+  document.getElementById('runningTotalLine').classList.add('hidden');
+  show('screen-chat');
+  renderAsk();
+}
+
+function renderAsk(){
+  const total = state.assets.length;
+  document.getElementById('progressBar').style.width = Math.round((state.idx/total)*100)+'%';
+
+  if(state.idx >= total){
+    finishAssessment();
+    return;
+  }
+  const a = state.assets[state.idx];
+  document.getElementById('askText').textContent = `Do you hold: ${a.name}?`;
+  document.getElementById('askHint').textContent = a.note ? a.note : '';
+  document.getElementById('amountInput').value = '';
+  document.getElementById('amountInput').placeholder = `Amount in ${state.currency}`;
+
+  const chipsEl = document.getElementById('askChips');
+  chipsEl.innerHTML = '';
+  const noneChip = document.createElement('div');
+  noneChip.className='chip'; noneChip.textContent="Don't have this";
+  noneChip.onclick = () => { document.getElementById('amountInput').value = 0; submitAmount(); };
+  chipsEl.appendChild(noneChip);
+
+  document.getElementById('amountInput').focus();
+}
+
+function submitAmount(){
+  const val = parseFloat(document.getElementById('amountInput').value);
+  const amt = isNaN(val) ? 0 : val;
+  const a = state.assets[state.idx];
+  state.answers.push({name: a.name, amount: amt});
+
+  if(amt > 0){
+    const row = document.createElement('div');
+    row.className = 'entry';
+    row.innerHTML = `<span class="name">${a.name}</span><span class="amt">${state.currency}${amt.toLocaleString()}</span>`;
+    document.getElementById('log').appendChild(row);
+  }
+
+  const runningTotal = state.answers.reduce((s,x)=>s+x.amount,0);
+  const rtLine = document.getElementById('runningTotalLine');
+  if(runningTotal > 0){
+    rtLine.classList.remove('hidden');
+    document.getElementById('runningTotal').textContent = state.currency + runningTotal.toLocaleString();
+  }
+
+  state.idx++;
+  renderAsk();
+}
+
+/* ---------- Self-contained narrative engine (no external API) ---------- */
+const GROWTH_KEYWORDS = ['stock','mutual fund','equity','retirement','pension','401','provident','ppf','epf','nps','fund','cpf','rrsp','tfsa','superannuation','sipp','depot','etf'];
+const LOW_GROWTH_KEYWORDS = ['cash','bank','gold','jewellery','jewelry','fixed deposit','bond','saving','term deposit','gic','gilt','bausparvertrag'];
+const REAL_ESTATE_KEYWORDS = ['real estate','property','land','home','house'];
+
+function categorize(name){
+  const n = name.toLowerCase();
+  if(GROWTH_KEYWORDS.some(k=>n.includes(k))) return 'growth';
+  if(REAL_ESTATE_KEYWORDS.some(k=>n.includes(k))) return 'realestate';
+  if(LOW_GROWTH_KEYWORDS.some(k=>n.includes(k))) return 'lowgrowth';
+  return 'other';
+}
+
+function computeMix(answers){
+  const held = answers.filter(a=>a.amount>0);
+  let growth=0, low=0, re=0, other=0;
+  held.forEach(a=>{
+    const cat = categorize(a.name);
+    if(cat==='growth') growth += a.amount;
+    else if(cat==='lowgrowth') low += a.amount;
+    else if(cat==='realestate') re += a.amount;
+    else other += a.amount;
+  });
+  const total = growth+low+re+other || 1;
+  return {
+    growth, low, re, other, total,
+    growthPct: Math.round((growth/total)*100),
+    lowPct: Math.round((low/total)*100),
+    rePct: Math.round((re/total)*100),
+    otherPct: Math.round((other/total)*100)
+  };
+}
+
+function buildNarrative(netWorth, expected, ratio, tier, answers){
+  const held = answers.filter(a=>a.amount>0);
+  const mix = computeMix(answers);
+  const growthPct = mix.growthPct, lowPct = mix.lowPct;
+
+  const openers = {
+    'Well Ahead': `You're sitting well ahead of where someone your age typically is.`,
+    'On Track': `You're right on track for your age and income.`,
+    'Slightly Behind': `You're a little behind the typical pace for your age and income — nothing alarming, but worth noticing.`,
+    'Behind': `Your net worth is meaningfully behind what's typical for your age and income right now.`
+  };
+
+  let mixComment = '';
+  if(held.length === 0){
+    mixComment = ` You haven't logged any assets yet, which is the real starting point to fix.`;
+  } else if(lowPct >= 60){
+    mixComment = ` Most of what you hold — about ${lowPct}% — sits in cash, gold, or fixed deposits. That's safe, but it grows slowly, and it's likely the biggest reason your total isn't further along.`;
+  } else if(growthPct >= 60){
+    mixComment = ` A healthy ${growthPct}% of your wealth is in growth assets like equity or retirement funds, which is doing a lot of the work here.`;
+  } else {
+    mixComment = ` Your mix is fairly balanced across cash, gold/deposits, and growth assets — reasonable, though there's usually room to tilt a bit more toward long-term growth.`;
+  }
+
+  const tips = {
+    'Well Ahead': `Keep the savings rate steady, review your asset allocation isn't overly conservative for your horizon, and consider whether estate/tax planning deserves attention now.`,
+    'On Track': `Keep contributions consistent and automatic, and revisit your mix every year or two so no single asset class quietly dominates.`,
+    'Slightly Behind': `A modest increase in your monthly savings rate, or redirecting idle cash into equity/retirement funds, would close this gap over a few years.`,
+    'Behind': `Start by tracking where your income actually goes each month, automate even a small recurring investment, and prioritize paying down any high-interest debt first if that applies.`
+  };
+
+  return `${openers[tier]}${mixComment} Your net worth works out to roughly ${ratio.toFixed(2)}x the age-and-income benchmark for someone in your position. ${tips[tier]}`;
+}
+
+function calcMonthlySavingsTarget(netWorth, age, income, years, rate){
+  const targetAge = age+years;
+  const targetNetWorth = (targetAge*income)/10;
+  const monthlyRate = rate/12;
+  const months = years*12;
+  const fvCurrent = netWorth*Math.pow(1+rate, years);
+  const neededFV = targetNetWorth - fvCurrent;
+  if(neededFV <= 0) return 0;
+  const annuityFactor = (Math.pow(1+monthlyRate, months)-1)/monthlyRate;
+  return neededFV/annuityFactor;
+}
+
+function buildRecommendations(netWorth, ratio, tier, answers, age, income, currency){
+  const mix = computeMix(answers);
+  const targetGrowthPct = Math.max(20, Math.min(80, 100 - age));
+  const growthGap = targetGrowthPct - mix.growthPct;
+
+  let allocText;
+  if(answers.filter(a=>a.amount>0).length === 0){
+    allocText = `Once you start logging assets, a rough target for your age is keeping about ${targetGrowthPct}% in growth assets (equity, retirement/pension funds) and the rest in cash, gold, or fixed income.`;
+  } else if(Math.abs(growthGap) <= 8){
+    allocText = `Your current split — ${mix.growthPct}% in growth assets versus a ${targetGrowthPct}% target for your age — is already close to right. No major rebalancing needed.`;
+  } else if(growthGap > 0){
+    allocText = `You're holding ${mix.growthPct}% in growth assets against a ${targetGrowthPct}% target for your age. Shifting roughly ${growthGap}% of your cash, gold, or fixed-deposit balance into equity or retirement funds over time would bring you closer to that target.`;
+  } else {
+    allocText = `You're holding ${mix.growthPct}% in growth assets against a ${targetGrowthPct}% target for your age — a bit aggressive, which is fine if your goals are long-dated, but worth checking your safety-net (cash + gold) can cover 6-12 months of expenses.`;
+  }
+
+  const years = 5;
+  const monthly = calcMonthlySavingsTarget(netWorth, age, income, years, 0.08);
+  let savingsText;
+  if(ratio >= 1){
+    savingsText = `You're already ahead of the age-${age+years} benchmark on your current trajectory — keep contributing at your existing rate (or more) to hold that lead.`;
+  } else if(monthly > 0){
+    savingsText = `To reach the typical benchmark for someone aged ${age+years} within ${years} years (assuming a modest 8% annual return on investments), you'd want to direct roughly ${currency}${Math.round(monthly).toLocaleString()} extra per month toward savings/investments, on top of what you already hold.`;
+  } else {
+    savingsText = `Your current holdings are on pace to reach the age-${age+years} benchmark on growth alone — maintaining your existing contributions should keep you there.`;
+  }
+
+  let milestones = '';
+  [10,20].forEach(gap=>{
+    const futureAge = age+gap;
+    if(futureAge <= 70){
+      const futureExpected = (futureAge*income)/10;
+      milestones += `<div class="bar-row"><div class="lbl"><span>By age ${futureAge}</span><span>${currency}${Math.round(futureExpected).toLocaleString()}</span></div></div>`;
+    }
+  });
+
+  const allocHtml = `
+    <div class="bar-row">
+      <div class="lbl"><span>Current growth-asset share</span><span>${mix.growthPct}%</span></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${mix.growthPct}%"></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="lbl"><span>Target for age ${age}</span><span>${targetGrowthPct}%</span></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${targetGrowthPct}%; opacity:0.5"></div></div>
+    </div>
+  `;
+
+  document.getElementById('recommendText').textContent = `${allocText} ${savingsText}`;
+  document.getElementById('allocationCompare').innerHTML = allocHtml;
+  document.getElementById('milestoneArea').innerHTML = milestones
+    ? `<label style="margin-top:16px;display:block;">Reference Milestones</label>${milestones}`
+    : '';
+}
+
+function finishAssessment(){
+  const netWorth = state.answers.reduce((s,x)=>s+x.amount,0);
+  const expected = (state.age * state.income) / 10; // age × income / 10 rule of thumb
+  const ratio = expected > 0 ? (netWorth / expected) : 0;
+
+  let tier, color;
+  if(ratio >= 2){ tier = 'Well Ahead'; color = 'var(--good)'; }
+  else if(ratio >= 1){ tier = 'On Track'; color = 'var(--good)'; }
+  else if(ratio >= 0.5){ tier = 'Slightly Behind'; color = 'var(--gold)'; }
+  else { tier = 'Behind'; color = 'var(--bad)'; }
+
+  const narrative = buildNarrative(netWorth, expected, ratio, tier, state.answers);
+
+  document.getElementById('stampArea').innerHTML = `
+    <div class="badge" style="color:${color}">${tier}</div>
+    <div class="ratio">Net worth ${state.currency}${netWorth.toLocaleString()} · ${ratio.toFixed(2)}x the age/income benchmark (${state.currency}${Math.round(expected).toLocaleString()})</div>
+  `;
+  document.getElementById('narrativeText').textContent = narrative;
+
+  const held = state.answers.filter(a=>a.amount>0).sort((a,b)=>b.amount-a.amount);
+  const breakdownEl = document.getElementById('breakdownArea');
+  if(held.length){
+    const maxAmt = held[0].amount;
+    breakdownEl.innerHTML = held.map(a => `
+      <div class="bar-row">
+        <div class="lbl"><span>${a.name}</span><span>${state.currency}${a.amount.toLocaleString()}</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:${Math.round((a.amount/maxAmt)*100)}%"></div></div>
+      </div>
+    `).join('');
+  } else {
+    breakdownEl.innerHTML = '';
+  }
+
+  const taxInfo = estimateTax(state.income, state.country, state.occupation);
+  const taxLines = [
+    `On an annual income of ${state.currency}${state.income.toLocaleString()}, estimated tax works out to roughly ${state.currency}${Math.round(taxInfo.tax).toLocaleString()} (about ${(taxInfo.effectiveRate*100).toFixed(1)}% effective rate), leaving an after-tax income of approximately ${state.currency}${Math.round(taxInfo.afterTax).toLocaleString()}.`
+  ];
+  if(taxInfo.note) taxLines.push(taxInfo.note);
+  if(taxInfo.hasModel) taxLines.push('This uses simplified slabs only — it ignores deductions, exemptions, filing status, and regional/state taxes, so treat it as a ballpark, not a filing figure.');
+  document.getElementById('taxText').textContent = taxLines.join(' ');
+
+  const taxTips = buildTaxTips(state.country, state.occupation);
+  document.getElementById('taxTipsArea').innerHTML = '<ul style="margin:0; padding-left:20px;">' + taxTips.map(t=>`<li style="margin-bottom:8px;">${t}</li>`).join('') + '</ul>';
+
+  buildRecommendations(netWorth, ratio, tier, state.answers, state.age, state.income, state.currency);
+
+  show(['screen-result','screen-tax','screen-recommend']);
+}
+
+function resetAll(){
+  state = {country:'', age:0, currency:'₹', income:0, occupation:'salaried', assets:[], answers:[], idx:0};
+  document.getElementById('country').value='';
+  document.getElementById('age').value='';
+  document.getElementById('currency').value='';
+  document.getElementById('income').value='';
+  document.getElementById('occupation').value='salaried';
+  show('screen-basics');
+}
+
+document.getElementById('amountInput')?.addEventListener('keypress', function(e){
+  if(e.key === 'Enter'){ submitAmount(); }
+});
+
+show('screen-basics');
+</script>
+</body>
+</html>
